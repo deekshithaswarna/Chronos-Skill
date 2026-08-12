@@ -14,8 +14,8 @@ description: >-
 # Chronology
 
 Build a cited, filterable litigation chronology from case documents. The output is one
-self-contained HTML file (from `assets/chronology.html`) that opens from `file://`,
-survives being emailed, and needs no backend, network, or browser storage.
+self-contained HTML file that opens from `file://`, survives being emailed, and needs no
+backend, network, or browser storage.
 
 Work through the steps **in order**. Each of the first two ends with a hard stop — do
 not run ahead. The value of this skill is accuracy and completeness, not speed.
@@ -79,7 +79,9 @@ find dates Pass 1 missed. For each document, **state the count**: "Doc 3 — pas
 dates; pass 2: +2".
 
 Where two documents give **different dates for the same event**, record **both rows**
-and note the disagreement in each row's `note`. **Never pick a winner.**
+and put the disagreement in each row's `note`. **Never pick a winner.** Every such
+conflict, and every flagged assumption from the sweep, belongs in `note` so it lands in
+the artifact — not only in the chat.
 
 ## Step 4 — Score materiality against the approved summary
 
@@ -96,8 +98,8 @@ loose. Re-examine the middle band and demote — do **not** move the threshold.
 Copy the **Template** at the bottom of this file verbatim into a new `.html` file, then
 replace the three placeholders — `__TITLE__`, `__META__`, and `__DATA__` — with the case
 data. `__META__` and `__DATA__` are JavaScript literals (no surrounding quotes). Copy the
-template exactly; do not rewrite it from memory — the search, filters, sorting, expand,
-print stylesheet, and exports are already wired and tested, and only the data changes.
+template exactly; do not rewrite it from memory — the search, filters, sorting, row
+shading, and expand are already wired and tested, and only the data changes.
 
 ```js
 const META = { title: "Acme Ltd v Beta Corp", summary: "One-paragraph approved summary…" };
@@ -114,7 +116,7 @@ const ROWS = [
     passage: "…the Claimant rejected the Software…",                // verbatim, shown on expand
     key: true,
     keyReason: "Rejection fixes the acceptance issue",              // ≤15 words, required when key
-    note: "Defence dates this 5 Oct — see row 24"                   // conflicts / flagged assumptions
+    note: "Defence dates this 5 Oct — see row 24"                   // conflict / flagged assumption; shades the row
   }
 ];
 ```
@@ -124,12 +126,15 @@ you resolved or are unsure of — the table shows a marker (`*` derived, `~` unc
 and reveals `dateOriginal`/`dateNote` on expand. **Description** is one neutral sentence
 naming who did what. **Source** is document title and page; put the verbatim quote in
 `passage`. **Key** is yes/no with the visible `keyReason`. Put every date conflict and
-flagged assumption in `note` — it surfaces in the row and is searchable.
+flagged assumption in `note` — it appears in its own **Notes** column and shades the
+whole row light orange, so conflicts are impossible to miss.
 
-The table columns are, in order: **Date | Description | Source | Key**. The page already
-provides global search across all fields, a key-only filter, party and issue filters,
-sortable columns, and exports to **Excel** (`.xls`, native), **Word** (`.doc`, native),
-and **PDF** (via `window.print()` with a print stylesheet that hides the controls).
+The columns, in order, are **Date | Description | Source | Key | Notes**. The page
+provides global search across all fields, key-only and flagged-only toggles, party and
+issue filters, sortable columns, and expandable source passages and date derivations.
+Key rows carry a purple accent; rows with a note are shaded orange. There are **no
+file-download buttons** — they are blocked inside the Artifact sandbox; if the user needs
+a hard copy, tell them to use the browser's own print/save-to-PDF on the open file.
 
 Save the finished file (e.g. `chronology.html`) and give it to the user. On Cowork,
 send it with `SendUserFile`; on Claude Code, write it to the working directory and tell
@@ -157,76 +162,107 @@ Copy everything inside the fence into a `.html` file and fill the three placehol
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ — Chronology</title>
 <style>
-  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --line:#ddd; --hl:#fff8e1; --key:#8a6d00; --band:#f6f7f9; }
+  :root {
+    --bg:#ffffff; --fg:#1e1b2e; --mut:#6b6785; --line:#e9e5f6; --band:#faf9ff;
+    --brand:#7c3aed; --brand-d:#6d28d9; --brand-soft:#f5f2ff; --brand-tint:#efeaff;
+    --warn:#c2410c; --warn-soft:#fff4e8; --shadow:0 1px 2px rgba(76,29,149,.06);
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--fg); background:var(--bg); }
-  header { padding:20px 24px 8px; }
-  h1 { margin:0 0 4px; font-size:22px; }
-  .summary { color:var(--mut); max-width:70ch; margin:0 0 14px; }
-  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:0 24px 14px; }
-  .controls input, .controls select { font:inherit; padding:6px 9px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
-  #q { flex:1; min-width:200px; }
-  .controls label { display:flex; gap:5px; align-items:center; color:var(--mut); font-size:14px; }
-  button { font:inherit; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:var(--band); color:var(--fg); cursor:pointer; }
-  button:hover { border-color:var(--mut); }
-  .count { color:var(--mut); font-size:13px; margin-left:auto; }
-  table { border-collapse:collapse; width:100%; }
-  th, td { text-align:left; padding:9px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { position:sticky; top:0; background:var(--bg); cursor:pointer; user-select:none; font-size:13px; letter-spacing:.02em; color:var(--mut); white-space:nowrap; }
-  th[aria-sort] .arrow::after { content:" ↕"; opacity:.35; }
-  th[aria-sort="ascending"] .arrow::after { content:" ↑"; opacity:1; }
-  th[aria-sort="descending"] .arrow::after { content:" ↓"; opacity:1; }
-  tr.key td { background:var(--hl); }
-  td.date { white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .flag { cursor:help; color:var(--key); font-weight:700; }
-  .exp { cursor:pointer; color:var(--mut); border:none; background:none; padding:0 6px 0 0; }
+  body { margin:0; font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--fg); background:var(--bg); }
+  header { padding:26px 28px 14px; background:linear-gradient(180deg,var(--brand-soft),var(--bg)); border-bottom:1px solid var(--line); }
+  .eyebrow { font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:700; color:var(--brand); margin:0 0 6px; }
+  h1 { margin:0 0 6px; font-size:23px; letter-spacing:-.01em; }
+  .summary { color:var(--mut); max-width:74ch; margin:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:16px 28px 8px; position:sticky; top:0; background:var(--bg); z-index:3; }
+  .controls input, .controls select { font:inherit; padding:8px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); box-shadow:var(--shadow); }
+  .controls input:focus, .controls select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-tint); }
+  #q { flex:1; min-width:220px; }
+  .toggle { display:inline-flex; gap:7px; align-items:center; padding:8px 12px; border:1px solid var(--line); border-radius:20px; font-size:14px; color:var(--mut); cursor:pointer; user-select:none; background:var(--bg); box-shadow:var(--shadow); }
+  .toggle:hover { border-color:var(--brand); color:var(--brand-d); }
+  .toggle input { accent-color:var(--brand); }
+  .controls .sel { display:flex; gap:6px; align-items:center; color:var(--mut); font-size:14px; }
+  .count { margin-left:auto; font-size:13px; font-weight:600; color:var(--brand-d); background:var(--brand-soft); border:1px solid var(--line); padding:6px 12px; border-radius:20px; white-space:nowrap; }
+  .legend { display:flex; gap:18px; padding:2px 28px 14px; font-size:12.5px; color:var(--mut); flex-wrap:wrap; }
+  .legend span { display:inline-flex; gap:7px; align-items:center; }
+  .swatch { width:22px; height:13px; border-radius:4px; border:1px solid var(--line); }
+  .sw-key { background:var(--brand-soft); box-shadow:inset 3px 0 0 var(--brand); }
+  .sw-flag { background:var(--warn-soft); }
+  .wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:720px; }
+  th, td { text-align:left; padding:11px 16px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { position:sticky; top:64px; background:var(--bg); cursor:pointer; user-select:none; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--mut); white-space:nowrap; z-index:2; }
+  th:hover { color:var(--brand-d); }
+  th[aria-sort] .arrow::after { content:" ↕"; opacity:.3; }
+  th[aria-sort="ascending"] .arrow::after { content:" ↑"; opacity:1; color:var(--brand); }
+  th[aria-sort="descending"] .arrow::after { content:" ↓"; opacity:1; color:var(--brand); }
+  tbody tr:hover td { background:var(--band); }
+  tr.key td { background:var(--brand-soft); }
+  tr.key td:first-child { box-shadow:inset 3px 0 0 var(--brand); }
+  tr.flag td { background:var(--warn-soft); }
+  tr.key.flag td:first-child { box-shadow:inset 3px 0 0 var(--brand); }
+  td.date { white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:500; }
+  .flagmark, .datemark { cursor:help; font-weight:700; }
+  .datemark { color:var(--brand); }
+  .exp { cursor:pointer; color:var(--brand); border:none; background:none; padding:0 6px 0 0; font-size:13px; }
   .src { color:var(--mut); font-size:14px; }
-  .keyreason { color:var(--key); font-size:13px; }
-  .badge { display:inline-block; font-size:12px; font-weight:700; padding:1px 7px; border-radius:10px; }
-  .yes { background:#fde68a; color:#7a5900; } .no { color:var(--mut); }
-  tr.detail td { background:var(--band); font-size:14px; color:#333; }
-  tr.detail dl { margin:0; display:grid; grid-template-columns:max-content 1fr; gap:2px 14px; }
-  tr.detail dt { color:var(--mut); font-weight:600; } tr.detail dd { margin:0; }
-  blockquote { margin:2px 0; padding-left:12px; border-left:3px solid var(--line); color:#333; }
-  .note { color:#9a3412; }
+  .keyreason { color:var(--brand-d); font-size:13px; margin-top:3px; }
+  .badge { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.03em; padding:2px 9px; border-radius:20px; }
+  .yes { background:var(--brand); color:#fff; } .no { color:var(--mut); font-weight:500; }
+  td.notecell { color:var(--warn); font-size:13.5px; }
+  .flagmark { color:var(--warn); margin-right:4px; }
+  tr.detail td { background:var(--band); font-size:14px; color:#3a3550; }
+  tr.detail dl { margin:0; display:grid; grid-template-columns:max-content 1fr; gap:4px 16px; }
+  tr.detail dt { color:var(--brand-d); font-weight:600; } tr.detail dd { margin:0; }
+  blockquote { margin:2px 0; padding-left:12px; border-left:3px solid var(--brand-tint); color:#3a3550; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#1a1b1e; --fg:#e6e6e6; --mut:#9aa0a6; --line:#333; --hl:#2c2716; --key:#e0b64a; --band:#232428; }
-    .yes { background:#4a3c10; color:#f0d894; } tr.detail dd { color:#cfcfcf; }
+    :root {
+      --bg:#17151f; --fg:#ece9f5; --mut:#a29dbc; --line:#312b45; --band:#1e1b2a;
+      --brand:#a78bfa; --brand-d:#c4b5fd; --brand-soft:#241f38; --brand-tint:#2f2850;
+      --warn:#fdba74; --warn-soft:#2e2114; --shadow:none;
+    }
+    .yes { color:#17151f; } td.notecell { color:var(--warn); }
   }
   @media print {
-    .controls, .exp, thead th .arrow, .count { display:none !important; }
-    header { padding:0 0 10px; } body { font-size:11px; }
+    .controls, .legend, .exp, thead th .arrow, .count { display:none !important; }
+    header { padding:0 0 10px; background:none; } body { font-size:11px; }
     tr.detail { display:none; } th { position:static; }
-    tr.key td { background:#f4f4f4 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .wrap { overflow:visible; } table { min-width:0; }
+    tr.key td, tr.flag td { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     td, th { padding:5px 8px; }
-    a[href]:after { content:""; }
   }
 </style>
 </head>
 <body>
 <header>
+  <p class="eyebrow">Chronology</p>
   <h1 id="ttl"></h1>
   <p class="summary" id="sum"></p>
 </header>
 <div class="controls">
   <input id="q" type="search" placeholder="Search all fields…" aria-label="Search">
-  <label><input type="checkbox" id="keyonly"> Key only</label>
-  <label>Party <select id="party"><option value="">All</option></select></label>
-  <label>Issue <select id="issue"><option value="">All</option></select></label>
-  <button id="xlsx">Excel</button>
-  <button id="doc">Word</button>
-  <button onclick="window.print()">PDF</button>
+  <label class="toggle"><input type="checkbox" id="keyonly"> Key only</label>
+  <label class="toggle"><input type="checkbox" id="flagonly"> Flagged only</label>
+  <span class="sel">Party <select id="party"><option value="">All</option></select></span>
+  <span class="sel">Issue <select id="issue"><option value="">All</option></select></span>
   <span class="count" id="cnt"></span>
 </div>
+<div class="legend">
+  <span><i class="swatch sw-key"></i> Key entry</span>
+  <span><i class="swatch sw-flag"></i> Flagged — date conflict or assumption (see Notes)</span>
+  <span><b class="datemark">*</b>&nbsp;derived date · <b class="datemark">~</b>&nbsp;uncertain</span>
+</div>
+<div class="wrap">
 <table>
   <thead><tr>
     <th data-k="date">Date<span class="arrow"></span></th>
     <th data-k="description">Description<span class="arrow"></span></th>
     <th data-k="source">Source<span class="arrow"></span></th>
     <th data-k="key">Key<span class="arrow"></span></th>
+    <th data-k="note">Notes<span class="arrow"></span></th>
   </tr></thead>
   <tbody id="rows"></tbody>
 </table>
+</div>
 
 <script>
 // ---- Data injected by the skill (replace the two placeholders) --------------
@@ -246,9 +282,10 @@ function fill(sel,k){ const vals=[...new Set(ROWS.map(r=>r[k]).filter(Boolean))]
   vals.forEach(v=>{ const o=document.createElement("option"); o.value=o.textContent=v; $(sel).append(o); }); }
 
 function filtered(){
-  const q=$("#q").value.toLowerCase(), ko=$("#keyonly").checked, p=$("#party").value, is=$("#issue").value;
+  const q=$("#q").value.toLowerCase(), ko=$("#keyonly").checked, fo=$("#flagonly").checked, p=$("#party").value, is=$("#issue").value;
   return ROWS.filter(r=>{
     if(ko && !r.key) return false;
+    if(fo && !r.note) return false;
     if(p && r.party!==p) return false;
     if(is && r.issue!==is) return false;
     if(q){ const hay=[r.date,r.dateOriginal,r.description,r.source,r.passage,r.party,r.issue,r.keyReason,r.note].join(" ").toLowerCase();
@@ -261,14 +298,15 @@ function render(){
   const list=filtered(), tb=$("#rows"); tb.innerHTML="";
   document.querySelectorAll("th").forEach(th=>th.setAttribute("aria-sort", th.dataset.k===sortK?(sortDir>0?"ascending":"descending"):"none"));
   list.forEach(r=>{
-    const hasDetail = r.dateOriginal || r.dateNote || r.passage || r.note;
-    const mark = r.certainty && r.certainty!=="exact" ? `<span class="flag" title="${esc(r.certainty)}: ${esc(r.dateNote||r.dateOriginal||"")}">${r.certainty==="uncertain"?"~":"*"}</span> ` : "";
-    const tr=document.createElement("tr"); if(r.key) tr.className="key";
+    const hasDetail = r.dateOriginal || r.dateNote || r.passage;
+    const mark = r.certainty && r.certainty!=="exact" ? `<span class="datemark" title="${esc(r.certainty)}: ${esc(r.dateNote||r.dateOriginal||"")}">${r.certainty==="uncertain"?"~":"*"}</span> ` : "";
+    const tr=document.createElement("tr"); tr.className=[r.key?"key":"", r.note?"flag":""].filter(Boolean).join(" ");
     tr.innerHTML =
-      `<td class="date">${hasDetail?`<button class="exp" data-i="${r._i}">${open.has(r._i)?"▾":"▸"}</button>`:""}${mark}${esc(r.date)}</td>`+
+      `<td class="date">${hasDetail?`<button class="exp" data-i="${r._i}" aria-label="Toggle detail">${open.has(r._i)?"▾":"▸"}</button>`:""}${mark}${esc(r.date)}</td>`+
       `<td>${esc(r.description)}</td>`+
       `<td class="src">${esc(r.source)}</td>`+
-      `<td>${r.key?`<span class="badge yes">KEY</span><div class="keyreason">${esc(r.keyReason||"")}</div>`:`<span class="badge no">no</span>`}</td>`;
+      `<td>${r.key?`<span class="badge yes">KEY</span><div class="keyreason">${esc(r.keyReason||"")}</div>`:`<span class="badge no">no</span>`}</td>`+
+      `<td class="notecell">${r.note?`<span class="flagmark" title="Flagged">⚠</span>${esc(r.note)}`:""}</td>`;
     tb.append(tr);
     if(hasDetail && open.has(r._i)){
       const d=document.createElement("tr"); d.className="detail";
@@ -276,11 +314,11 @@ function render(){
       if(r.dateOriginal) dl+=`<dt>Original</dt><dd>${esc(r.dateOriginal)}</dd>`;
       if(r.dateNote) dl+=`<dt>Resolved</dt><dd>${esc(r.dateNote)}</dd>`;
       if(r.passage) dl+=`<dt>Passage</dt><dd><blockquote>${esc(r.passage)}</blockquote></dd>`;
-      if(r.note) dl+=`<dt>Note</dt><dd class="note">${esc(r.note)}</dd>`;
-      d.innerHTML=`<td colspan="4">${dl}</dl></td>`; tb.append(d);
+      d.innerHTML=`<td colspan="5">${dl}</dl></td>`; tb.append(d);
     }
   });
-  $("#cnt").textContent = `${list.length} of ${ROWS.length} entries · ${ROWS.filter(r=>r.key).length} key`;
+  const kc=ROWS.filter(r=>r.key).length, fc=ROWS.filter(r=>r.note).length;
+  $("#cnt").textContent = `${list.length} of ${ROWS.length} · ${kc} key · ${fc} flagged`;
 }
 
 document.addEventListener("click",e=>{
@@ -289,22 +327,7 @@ document.addEventListener("click",e=>{
 document.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{
   const k=th.dataset.k; if(k===sortK) sortDir=-sortDir; else { sortK=k; sortDir=1; } render();
 }));
-["input","change"].forEach(ev=>["#q","#keyonly","#party","#issue"].forEach(s=>$(s).addEventListener(ev,render)));
-
-// ---- Exports: all client-side, no libraries ---------------------------------
-function tableHTML(){
-  const rows=filtered(), h=["Date","Description","Source","Key","Reason / Note"];
-  const cell=v=>`<td>${esc(v)}</td>`;
-  const body=rows.map(r=>`<tr>${cell(r.date)}${cell(r.description)}${cell(r.source)}${cell(r.key?"Yes":"No")}${cell(r.key?(r.keyReason||""):(r.note||""))}</tr>`).join("");
-  return `<table border="1"><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`;
-}
-function save(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
-const base=()=> (META.title||"chronology").replace(/[^\w]+/g,"_").toLowerCase();
-$("#xlsx").onclick=()=> save(new Blob(['﻿<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>'+tableHTML()+'</body></html>'],
-  {type:"application/vnd.ms-excel"}), base()+".xls");
-$("#doc").onclick=()=> save(new Blob(['﻿<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>'+esc(META.title||"Chronology")+'</title></head><body><h1>'+esc(META.title||"Chronology")+'</h1>'+tableHTML()+'</body></html>'],
-  {type:"application/msword"}), base()+".doc");
-// -----------------------------------------------------------------------------
+["input","change"].forEach(ev=>["#q","#keyonly","#flagonly","#party","#issue"].forEach(s=>$(s).addEventListener(ev,render)));
 render();
 </script>
 </body>
