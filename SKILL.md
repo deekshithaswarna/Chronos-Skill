@@ -98,43 +98,47 @@ loose. Re-examine the middle band and demote — do **not** move the threshold.
 Copy the **Template** at the bottom of this file verbatim into a new `.html` file, then
 replace the three placeholders — `__TITLE__`, `__META__`, and `__DATA__` — with the case
 data. `__META__` and `__DATA__` are JavaScript literals (no surrounding quotes). Copy the
-template exactly; do not rewrite it from memory — the search, filters, sorting, row
-shading, and expand are already wired and tested, and only the data changes.
+template exactly; do not rewrite it from memory — the search, filters, sorting, and the
+expandable source detail are already wired and tested, and only the data changes.
 
 ```js
-const META = { title: "Acme Ltd v Beta Corp", summary: "One-paragraph approved summary…" };
+const META = {
+  title: "Ambleside Foods v Trentham Engineering — Coalville Line 3",
+  documents: 5,                    // optional; falls back to a count of distinct sources
+  prepared: "12 August 2026"       // optional; falls back to today's date
+};
 const ROWS = [
   {
-    date: "2023-09-30",              // ISO, sortable
-    certainty: "exact",              // "exact" | "derived" | "uncertain" — anything but exact shows a marker
-    dateOriginal: "the deadline",    // the words as they appeared (for derived/uncertain)
-    dateNote: "Resolved: 30 days from 31 Aug delivery per cl. 4",  // how it was resolved/computed
-    description: "Beta rejected the software as non-conforming.",   // one neutral sentence: who did what
-    party: "Beta Corp",              // actor — populates the Party filter
-    issue: "Acceptance",             // issue tag — populates the Issue filter
-    source: "Particulars of Claim, p.6",                            // title + page
-    passage: "…the Claimant rejected the Software…",                // verbatim, shown on expand
-    key: true,
-    keyReason: "Rejection fixes the acceptance issue",              // ≤15 words, required when key
-    note: "Defence dates this 5 Oct — see row 24"                   // conflict / flagged assumption; shades the row
+    date: "2025-02-06",              // ISO, sortable
+    certainty: "exact",              // "exact" | "derived" | "uncertain" — non-exact shows a ▲ marker
+    dateNote: "Date relative: 'the same week' as PO receipt on 6 Feb 2025 (w/c 3 Feb).", // shown in the expanded detail
+    description: "Trentham releases the long-lead items.",          // one neutral sentence: who did what
+    party: "Trentham Engineering",   // actor — populates the Party filter
+    issue: "Delay",                  // issue tag — populates the Issue filter
+    source: "Email — S. Ruddock to N. Okafor, 4 Mar 2025, p.1",     // title + page; the clickable link
+    passage: "We received your purchase order on 6 February 2025 and released the long-lead items the same week.", // verbatim, shown on expand
+    key: false,
+    keyReason: "",                   // ≤15 words, required when key is true
+    note: "Trentham's letter of 2 Apr 2025 dates the PO 10 Feb 2025 — conflict."          // conflict / flagged assumption; shows inline under the description
   }
 ];
 ```
 
-Field rules: **Date** is ISO; set `certainty` to `derived` or `uncertain` for any date
-you resolved or are unsure of — the table shows a marker (`*` derived, `~` uncertain)
-and reveals `dateOriginal`/`dateNote` on expand. **Description** is one neutral sentence
-naming who did what. **Source** is document title and page; put the verbatim quote in
-`passage`. **Key** is yes/no with the visible `keyReason`. Put every date conflict and
-flagged assumption in `note` — it appears in its own **Notes** column and shades the
-whole row light orange, so conflicts are impossible to miss.
+Field rules: **Date** is ISO. Set `certainty` to `derived` or `uncertain` for any date
+you resolved or are unsure of — the table shows a marker (▲ derived, △ uncertain) and
+the resolution you wrote in `dateNote` appears in the expandable detail. **Description**
+is one neutral sentence naming who did what. **Source** is document title and page; it
+is an underlined link that expands the verbatim `passage` and the date derivation
+beneath the row. **Key** is Yes/No with the visible `keyReason`. Put every date conflict
+and flagged assumption in `note` — it appears inline beneath the description with a ⚑
+marker, so conflicts are visible in the table itself, not only in the chat.
 
-The columns, in order, are **Date | Description | Source | Key | Notes**. The page
-provides global search across all fields, key-only and flagged-only toggles, party and
-issue filters, sortable columns, and expandable source passages and date derivations.
-Key rows carry a purple accent; rows with a note are shaded orange. There are **no
-file-download buttons** — they are blocked inside the Artifact sandbox; if the user needs
-a hard copy, tell them to use the browser's own print/save-to-PDF on the open file.
+The columns, in order, are **Date | Description | Source | Key**. The page provides global
+search across all fields, a party filter, an issue filter, a key-only toggle, sortable
+columns, and click-to-expand source passages. It is styled in a clean beige-and-white,
+Times New Roman print aesthetic. There are **no file-download buttons** — they are blocked
+inside the Artifact sandbox; if the user needs a hard copy, tell them to use the browser's
+own print / save-to-PDF on the open file.
 
 Save the finished file (e.g. `chronology.html`) and give it to the user. On Cowork,
 send it with `SendUserFile`; on Claude Code, write it to the working directory and tell
@@ -163,93 +167,67 @@ Copy everything inside the fence into a `.html` file and fill the three placehol
 <title>__TITLE__ — Chronology</title>
 <style>
   :root {
-    --bg:#ffffff; --fg:#1e1b2e; --mut:#6b6785; --line:#e9e5f6; --band:#faf9ff;
-    --brand:#7c3aed; --brand-d:#6d28d9; --brand-soft:#f5f2ff; --brand-tint:#efeaff;
-    --warn:#c2410c; --warn-soft:#fff4e8; --shadow:0 1px 2px rgba(76,29,149,.06);
+    --bg:#faf8f3; --panel:#ffffff; --ink:#1c1a17; --mut:#7c7264; --line:#e6e0d4;
+    --head:#efeae0; --detail:#f4f1ea; --hover:#f7f4ed; --rust:#a4592a; --flag:#8f5330;
+    --link:#20508f; --quote:#cdc4b2;
   }
   * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--fg); background:var(--bg); }
-  header { padding:26px 28px 14px; background:linear-gradient(180deg,var(--brand-soft),var(--bg)); border-bottom:1px solid var(--line); }
-  .eyebrow { font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:700; color:var(--brand); margin:0 0 6px; }
-  h1 { margin:0 0 6px; font-size:23px; letter-spacing:-.01em; }
-  .summary { color:var(--mut); max-width:74ch; margin:0; }
-  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:16px 28px 8px; position:sticky; top:0; background:var(--bg); z-index:3; }
-  .controls input, .controls select { font:inherit; padding:8px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); box-shadow:var(--shadow); }
-  .controls input:focus, .controls select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-tint); }
-  #q { flex:1; min-width:220px; }
-  .toggle { display:inline-flex; gap:7px; align-items:center; padding:8px 12px; border:1px solid var(--line); border-radius:20px; font-size:14px; color:var(--mut); cursor:pointer; user-select:none; background:var(--bg); box-shadow:var(--shadow); }
-  .toggle:hover { border-color:var(--brand); color:var(--brand-d); }
-  .toggle input { accent-color:var(--brand); }
-  .controls .sel { display:flex; gap:6px; align-items:center; color:var(--mut); font-size:14px; }
-  .count { margin-left:auto; font-size:13px; font-weight:600; color:var(--brand-d); background:var(--brand-soft); border:1px solid var(--line); padding:6px 12px; border-radius:20px; white-space:nowrap; }
-  .legend { display:flex; gap:18px; padding:2px 28px 14px; font-size:12.5px; color:var(--mut); flex-wrap:wrap; }
-  .legend span { display:inline-flex; gap:7px; align-items:center; }
-  .swatch { width:22px; height:13px; border-radius:4px; border:1px solid var(--line); }
-  .sw-key { background:var(--brand-soft); box-shadow:inset 3px 0 0 var(--brand); }
-  .sw-flag { background:var(--warn-soft); }
-  .wrap { overflow-x:auto; }
-  table { border-collapse:collapse; width:100%; min-width:720px; }
-  th, td { text-align:left; padding:11px 16px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { position:sticky; top:64px; background:var(--bg); cursor:pointer; user-select:none; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--mut); white-space:nowrap; z-index:2; }
-  th:hover { color:var(--brand-d); }
-  th[aria-sort] .arrow::after { content:" ↕"; opacity:.3; }
-  th[aria-sort="ascending"] .arrow::after { content:" ↑"; opacity:1; color:var(--brand); }
-  th[aria-sort="descending"] .arrow::after { content:" ↓"; opacity:1; color:var(--brand); }
-  tbody tr:hover td { background:var(--band); }
-  tr.key td { background:var(--brand-soft); }
-  tr.key td:first-child { box-shadow:inset 3px 0 0 var(--brand); }
-  tr.flag td { background:var(--warn-soft); }
-  tr.key.flag td:first-child { box-shadow:inset 3px 0 0 var(--brand); }
-  td.date { white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:500; }
-  .flagmark, .datemark { cursor:help; font-weight:700; }
-  .datemark { color:var(--brand); }
-  .exp { cursor:pointer; color:var(--brand); border:none; background:none; padding:0 6px 0 0; font-size:13px; }
-  .src { color:var(--mut); font-size:14px; }
-  .keyreason { color:var(--brand-d); font-size:13px; margin-top:3px; }
-  .badge { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.03em; padding:2px 9px; border-radius:20px; }
-  .yes { background:var(--brand); color:#fff; } .no { color:var(--mut); font-weight:500; }
-  td.notecell { color:var(--warn); font-size:13.5px; }
-  .flagmark { color:var(--warn); margin-right:4px; }
-  tr.detail td { background:var(--band); font-size:14px; color:#3a3550; }
-  tr.detail dl { margin:0; display:grid; grid-template-columns:max-content 1fr; gap:4px 16px; }
-  tr.detail dt { color:var(--brand-d); font-weight:600; } tr.detail dd { margin:0; }
-  blockquote { margin:2px 0; padding-left:12px; border-left:3px solid var(--brand-tint); color:#3a3550; }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:#17151f; --fg:#ece9f5; --mut:#a29dbc; --line:#312b45; --band:#1e1b2a;
-      --brand:#a78bfa; --brand-d:#c4b5fd; --brand-soft:#241f38; --brand-tint:#2f2850;
-      --warn:#fdba74; --warn-soft:#2e2114; --shadow:none;
-    }
-    .yes { color:#17151f; } td.notecell { color:var(--warn); }
-  }
+  body { margin:0; font:16px/1.5 "Times New Roman", Times, Georgia, serif; color:var(--ink); background:var(--bg); }
+  header { padding:30px 32px 6px; }
+  h1 { margin:0 0 5px; font-size:26px; font-weight:700; letter-spacing:-.01em; }
+  .metaline { color:var(--mut); font-size:15px; margin:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:18px 32px 6px; }
+  .controls input[type=search], .controls select { font:inherit; font-size:15px; padding:8px 11px; border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink); }
+  .controls input[type=search] { flex:1; min-width:230px; }
+  .controls input[type=search]:focus, .controls select:focus { outline:none; border-color:var(--rust); box-shadow:0 0 0 2px rgba(164,89,42,.14); }
+  .chk { display:inline-flex; gap:7px; align-items:center; font-size:15px; color:var(--ink); cursor:pointer; user-select:none; }
+  .chk input { accent-color:var(--rust); width:15px; height:15px; }
+  .count { margin-left:auto; font-size:14px; color:var(--mut); white-space:nowrap; }
+  .wrap { overflow-x:auto; padding:14px 32px 44px; }
+  table { border-collapse:collapse; width:100%; min-width:680px; background:var(--panel); border:1px solid var(--line); }
+  thead th { background:var(--head); text-align:left; font-size:12px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--mut); padding:12px 16px; border-bottom:1px solid var(--line); cursor:pointer; white-space:nowrap; position:sticky; top:0; z-index:1; }
+  thead th:hover { color:var(--rust); }
+  th .arrow { font-size:11px; color:var(--rust); }
+  th[aria-sort=none] .arrow::after { content:" ↕"; color:var(--mut); opacity:.5; }
+  th[aria-sort=ascending] .arrow::after { content:" ↑"; }
+  th[aria-sort=descending] .arrow::after { content:" ↓"; }
+  td { padding:13px 16px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr.row:hover > td { background:var(--hover); }
+  td.date { white-space:nowrap; }
+  .mark { color:var(--rust); cursor:help; margin-left:3px; }
+  .flag { display:block; margin-top:7px; color:var(--flag); font-size:15px; }
+  .flag .fi { margin-right:5px; }
+  a.src { color:var(--link); text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+  a.src:hover { color:var(--rust); }
+  td.key { color:var(--mut); }
+  td.key .yes { color:var(--ink); font-weight:700; }
+  td.key .reason { display:block; color:var(--mut); font-size:14px; margin-top:3px; max-width:34ch; }
+  tr.detail > td { background:var(--detail); }
+  .doc { font-weight:700; margin-bottom:7px; }
+  blockquote { margin:0 0 7px; padding-left:14px; border-left:2px solid var(--quote); color:#3a352d; }
+  .deriv { color:var(--flag); font-size:15px; }
   @media print {
-    .controls, .legend, .exp, thead th .arrow, .count { display:none !important; }
-    header { padding:0 0 10px; background:none; } body { font-size:11px; }
-    tr.detail { display:none; } th { position:static; }
-    .wrap { overflow:visible; } table { min-width:0; }
-    tr.key td, tr.flag td { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    td, th { padding:5px 8px; }
+    .controls, .count, th .arrow { display:none !important; }
+    header { padding:0 0 8px; } body { font-size:11px; background:#fff; }
+    .wrap { overflow:visible; padding:0; } table { min-width:0; border:none; }
+    tr.detail > td { background:#f4f1ea; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    thead th { position:static; background:#efeae0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    td, th { padding:6px 9px; } tr { break-inside:avoid; }
   }
 </style>
 </head>
 <body>
 <header>
-  <p class="eyebrow">Chronology</p>
   <h1 id="ttl"></h1>
-  <p class="summary" id="sum"></p>
+  <p class="metaline" id="meta"></p>
 </header>
 <div class="controls">
   <input id="q" type="search" placeholder="Search all fields…" aria-label="Search">
-  <label class="toggle"><input type="checkbox" id="keyonly"> Key only</label>
-  <label class="toggle"><input type="checkbox" id="flagonly"> Flagged only</label>
-  <span class="sel">Party <select id="party"><option value="">All</option></select></span>
-  <span class="sel">Issue <select id="issue"><option value="">All</option></select></span>
+  <select id="party" aria-label="Party"><option value="">All parties</option></select>
+  <select id="issue" aria-label="Issue"><option value="">All issues</option></select>
+  <label class="chk"><input type="checkbox" id="keyonly"> Key only</label>
+  <label class="chk"><input type="checkbox" id="flagonly"> Flagged only</label>
   <span class="count" id="cnt"></span>
-</div>
-<div class="legend">
-  <span><i class="swatch sw-key"></i> Key entry</span>
-  <span><i class="swatch sw-flag"></i> Flagged — date conflict or assumption (see Notes)</span>
-  <span><b class="datemark">*</b>&nbsp;derived date · <b class="datemark">~</b>&nbsp;uncertain</span>
 </div>
 <div class="wrap">
 <table>
@@ -258,7 +236,6 @@ Copy everything inside the fence into a `.html` file and fill the three placehol
     <th data-k="description">Description<span class="arrow"></span></th>
     <th data-k="source">Source<span class="arrow"></span></th>
     <th data-k="key">Key<span class="arrow"></span></th>
-    <th data-k="note">Notes<span class="arrow"></span></th>
   </tr></thead>
   <tbody id="rows"></tbody>
 </table>
@@ -275,7 +252,10 @@ ROWS.forEach((r,i)=>r._i=i);
 let sortK="date", sortDir=1, open=new Set();
 
 $("#ttl").textContent = META.title || "Chronology";
-$("#sum").textContent = META.summary || "";
+const prepared = META.prepared || new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+const docs = META.documents ?? new Set(ROWS.map(r=>String(r.source||"").replace(/,?\s*p\.?\s*\d.*$/i,"").trim()).filter(Boolean)).size;
+const plur=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
+$("#meta").textContent = `${plur(ROWS.length,"entry").replace("entrys","entries")} · ${plur(docs,"document")} · prepared ${prepared}`;
 document.title = (META.title||"Case") + " — Chronology";
 fill("#party","party"); fill("#issue","issue");
 function fill(sel,k){ const vals=[...new Set(ROWS.map(r=>r[k]).filter(Boolean))].sort();
@@ -288,7 +268,7 @@ function filtered(){
     if(fo && !r.note) return false;
     if(p && r.party!==p) return false;
     if(is && r.issue!==is) return false;
-    if(q){ const hay=[r.date,r.dateOriginal,r.description,r.source,r.passage,r.party,r.issue,r.keyReason,r.note].join(" ").toLowerCase();
+    if(q){ const hay=[r.date,r.dateNote,r.description,r.source,r.passage,r.party,r.issue,r.keyReason,r.note].join(" ").toLowerCase();
       if(!hay.includes(q)) return false; }
     return true;
   }).sort((a,b)=>{ const x=(a[sortK]??"")+"", y=(b[sortK]??"")+""; return x<y?-sortDir:x>y?sortDir:a._i-b._i; });
@@ -298,31 +278,32 @@ function render(){
   const list=filtered(), tb=$("#rows"); tb.innerHTML="";
   document.querySelectorAll("th").forEach(th=>th.setAttribute("aria-sort", th.dataset.k===sortK?(sortDir>0?"ascending":"descending"):"none"));
   list.forEach(r=>{
-    const hasDetail = r.dateOriginal || r.dateNote || r.passage;
-    const mark = r.certainty && r.certainty!=="exact" ? `<span class="datemark" title="${esc(r.certainty)}: ${esc(r.dateNote||r.dateOriginal||"")}">${r.certainty==="uncertain"?"~":"*"}</span> ` : "";
-    const tr=document.createElement("tr"); tr.className=[r.key?"key":"", r.note?"flag":""].filter(Boolean).join(" ");
+    const hasDetail = r.passage || r.dateNote;
+    const mark = r.certainty && r.certainty!=="exact" ? `<span class="mark" title="${esc(r.certainty)} date — see source detail">${r.certainty==="uncertain"?"△":"▲"}</span>` : "";
+    const src = hasDetail ? `<a class="src" data-i="${r._i}">${esc(r.source)}</a>` : esc(r.source);
+    const flag = r.note ? `<span class="flag"><span class="fi">⚑</span>${esc(r.note)}</span>` : "";
+    const key = r.key ? `<span class="yes">Yes</span><span class="reason">${esc(r.keyReason||"")}</span>` : "No";
+    const tr=document.createElement("tr"); tr.className="row";
     tr.innerHTML =
-      `<td class="date">${hasDetail?`<button class="exp" data-i="${r._i}" aria-label="Toggle detail">${open.has(r._i)?"▾":"▸"}</button>`:""}${mark}${esc(r.date)}</td>`+
-      `<td>${esc(r.description)}</td>`+
-      `<td class="src">${esc(r.source)}</td>`+
-      `<td>${r.key?`<span class="badge yes">KEY</span><div class="keyreason">${esc(r.keyReason||"")}</div>`:`<span class="badge no">no</span>`}</td>`+
-      `<td class="notecell">${r.note?`<span class="flagmark" title="Flagged">⚠</span>${esc(r.note)}`:""}</td>`;
+      `<td class="date">${esc(r.date)}${mark}</td>`+
+      `<td class="desc">${esc(r.description)}${flag}</td>`+
+      `<td class="src">${src}</td>`+
+      `<td class="key">${key}</td>`;
     tb.append(tr);
     if(hasDetail && open.has(r._i)){
       const d=document.createElement("tr"); d.className="detail";
-      let dl="<dl>";
-      if(r.dateOriginal) dl+=`<dt>Original</dt><dd>${esc(r.dateOriginal)}</dd>`;
-      if(r.dateNote) dl+=`<dt>Resolved</dt><dd>${esc(r.dateNote)}</dd>`;
-      if(r.passage) dl+=`<dt>Passage</dt><dd><blockquote>${esc(r.passage)}</blockquote></dd>`;
-      d.innerHTML=`<td colspan="5">${dl}</dl></td>`; tb.append(d);
+      let h=`<div class="doc">${esc(r.source)}</div>`;
+      if(r.passage) h+=`<blockquote>${esc(r.passage)}</blockquote>`;
+      if(r.dateNote) h+=`<div class="deriv">${esc(r.dateNote)}</div>`;
+      d.innerHTML=`<td colspan="4">${h}</td>`; tb.append(d);
     }
   });
   const kc=ROWS.filter(r=>r.key).length, fc=ROWS.filter(r=>r.note).length;
-  $("#cnt").textContent = `${list.length} of ${ROWS.length} · ${kc} key · ${fc} flagged`;
+  $("#cnt").textContent = `${list.length} shown · ${kc} key · ${fc} flagged`;
 }
 
 document.addEventListener("click",e=>{
-  const ex=e.target.closest(".exp"); if(ex){ const i=+ex.dataset.i; open.has(i)?open.delete(i):open.add(i); render(); }
+  const a=e.target.closest("a.src"); if(a){ e.preventDefault(); const i=+a.dataset.i; open.has(i)?open.delete(i):open.add(i); render(); }
 });
 document.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{
   const k=th.dataset.k; if(k===sortK) sortDir=-sortDir; else { sortK=k; sortDir=1; } render();
